@@ -14,7 +14,7 @@ int main(string[] argv)
 {
     if (argv.length < 2)
     {
-        stderr.writeln("Specify std or fast");
+        stderr.writeln("Specify std, stdnogc, or fast");
         return 1;
     }
 
@@ -26,9 +26,17 @@ int main(string[] argv)
     if (argv[1] == "std")
     {
         auto result = benchmark!({
-            GC.disable();
             auto data = std.csv.csvReader(input).array;
             writefln("std.csv read %d records", data.length);
+        })(1);
+        writefln("std.csv: %s msecs", result[0].msecs);
+    }
+    else if (argv[1] == "stdnogc")
+    {
+        auto result = benchmark!({
+            GC.disable();
+            auto data = std.csv.csvReader(input).array;
+            writefln("std.csv (nogc) read %d records", data.length);
             GC.enable();
         })(1);
         writefln("std.csv: %s msecs", result[0].msecs);
