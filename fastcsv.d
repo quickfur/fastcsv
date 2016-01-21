@@ -23,12 +23,14 @@ auto csvFromUtf8File(string filename)
  */
 auto csvFromString(dchar fieldDelim = ',')(const(char)[] data)
 {
+    import core.memory;
     import std.array : appender;
 
     enum fieldBlockSize = 1 << 16;
     auto fields = new const(char)[][fieldBlockSize];
     size_t curField = 0;
 
+    GC.disable();
     auto app = appender!(const(char)[][][]);
 
     // Scan data
@@ -74,6 +76,8 @@ auto csvFromString(dchar fieldDelim = ',')(const(char)[] data)
             i++;
     }
 
+    GC.collect();
+    GC.enable();
     return app.data;
 }
 
