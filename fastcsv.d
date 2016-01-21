@@ -21,7 +21,7 @@ auto csvFromUtf8File(string filename)
  *  fieldDelim = The field delimiter (default: ',')
  *  data = The data in CSV format.
  */
-auto csvFromString(dchar fieldDelim = ',')(const(char)[] data)
+auto csvFromString(dchar fieldDelim=',', dchar quote='"')(const(char)[] data)
 {
     import core.memory;
     import std.array : appender;
@@ -42,11 +42,27 @@ auto csvFromString(dchar fieldDelim = ',')(const(char)[] data)
         while (i < data.length && data[i] != '\n' && data[i] != '\r')
         {
             // Parse fields
-            size_t firstChar = i;
-            while (i < data.length && data[i] != fieldDelim &&
-                   data[i] != '\n' && data[i] != '\r')
+            size_t firstChar, lastChar;
+            if (data[i] == quote)
             {
                 i++;
+                firstChar = i;
+                while (i < data.length && data[i] != fieldDelim &&
+                       data[i] != '\n' && data[i] != '\r')
+                {
+                    i++;
+                }
+                lastChar = (i < data.length && data[i-1] == quote) ? i-1 : i;
+            }
+            else
+            {
+                firstChar = i;
+                while (i < data.length && data[i] != fieldDelim &&
+                       data[i] != '\n' && data[i] != '\r')
+                {
+                    i++;
+                }
+                lastChar = i;
             }
             if (curField >= fields.length)
             {
@@ -63,7 +79,7 @@ auto csvFromString(dchar fieldDelim = ',')(const(char)[] data)
                 fields = nextFields;
             }
             assert(curField < fields.length);
-            fields[curField++] = data[firstChar .. i];
+            fields[curField++] = data[firstChar .. lastChar];
 
             // Skip over field delimiter
             if (i < data.length && data[i] == fieldDelim)
@@ -90,9 +106,9 @@ unittest
 
     auto parsed = csvFromString(sampleData);
     assert(parsed == [
-        [ "123", "abc", `"mno pqr"`, "0" ],
-        [ "456", "def", `"stuv wx"`, "1" ],
-        [ "78", "ghijk", `"yx"`, "2" ]
+        [ "123", "abc", "mno pqr", "0" ],
+        [ "456", "def", "stuv wx", "1" ],
+        [ "78", "ghijk", "yx", "2" ]
     ]);
 }
 
@@ -111,6 +127,7 @@ unittest
     ]);
 }
 
+version(none)
 unittest
 {
     auto data = csvFromUtf8File("ext/cbp13co.txt");
