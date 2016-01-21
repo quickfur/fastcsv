@@ -56,8 +56,8 @@ auto csvFromString(dchar fieldDelim = ',')(const(char)[] data)
 
                 //fields.length = firstField; // release unused memory?
 
+                curField = curField - firstField;
                 firstField = 0;
-                curField = firstField - curField;
                 fields = nextFields;
             }
             assert(curField < fields.length);
@@ -80,8 +80,8 @@ auto csvFromString(dchar fieldDelim = ',')(const(char)[] data)
 unittest
 {
     auto sampleData =
-        `123,abc,"mno pqr",0`~"\n"~
-        `456,def,"stuv wx",1`~"\n"~
+        `123,abc,"mno pqr",0` ~ "\n" ~
+        `456,def,"stuv wx",1` ~ "\n" ~
         `78,ghijk,"yx",2`;
 
     auto parsed = csvFromString(sampleData);
@@ -90,6 +90,28 @@ unittest
         [ "456", "def", `"stuv wx"`, "1" ],
         [ "78", "ghijk", `"yx"`, "2" ]
     ]);
+}
+
+unittest
+{
+    auto dosData =
+        `123,aa,bb,cc` ~ "\r\n" ~
+        `456,dd,ee,ff` ~ "\r\n" ~
+        `789,gg,hh,ii` ~ "\r\n";
+
+    auto parsed = csvFromString(dosData);
+    assert(parsed == [
+        [ "123", "aa", "bb", "cc" ],
+        [ "456", "dd", "ee", "ff" ],
+        [ "789", "gg", "hh", "ii" ]
+    ]);
+}
+
+unittest
+{
+    auto data = csvFromUtf8File("ext/cbp13co.txt");
+    import std.stdio;
+    writefln("%d records", data.length);
 }
 
 // vim:set ai sw=4 ts=4 et:
