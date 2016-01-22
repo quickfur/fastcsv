@@ -47,10 +47,18 @@ auto csvFromString(dchar fieldDelim=',', dchar quote='"')(const(char)[] data)
             {
                 i++;
                 firstChar = i;
-                while (i < data.length && data[i] != fieldDelim &&
-                       data[i] != '\n' && data[i] != '\r')
+                while (i < data.length)
                 {
-                    i++;
+                    if (data[i] == quote)
+                    {
+                        i++;
+                        if (data[i] != quote)
+                            break;
+
+                        i++;
+                    }
+                    else
+                        i++;
                 }
                 lastChar = (i < data.length && data[i-1] == quote) ? i-1 : i;
             }
@@ -124,6 +132,21 @@ unittest
         [ "123", "aa", "bb", "cc" ],
         [ "456", "dd", "ee", "ff" ],
         [ "789", "gg", "hh", "ii" ]
+    ]);
+}
+
+unittest
+{
+    // Field that contains newlines
+    auto nastyData =
+        `123,abc,"ha ha ` ~ "\n" ~
+        `ha this is a split value",567` ~ "\n" ~
+        `321,"a,comma,b",def,111` ~ "\n";
+
+    auto parsed = csvFromString(nastyData);
+    assert(parsed == [
+        [ "123", "abc", "ha ha \nha this is a split value", "567" ],
+        [ "321", "a,comma,b", "def", "111" ]
     ]);
 }
 
