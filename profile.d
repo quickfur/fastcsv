@@ -5,7 +5,7 @@ void main()
 {
     enum csvFile = "ext/cbp13co.txt";
     auto input = cast(string) read(csvFile);
-    auto data = fastcsv.csvFromString(input);
+    auto data = fastcsv.csvToArray(input);
 }
 
 // vim:set ai sw=4 ts=4 et:
