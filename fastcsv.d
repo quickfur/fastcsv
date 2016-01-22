@@ -87,12 +87,6 @@ auto csvFromString(dchar fieldDelim=',', dchar quote='"')(const(char)[] data)
                 while (i < data.length && data[i] != fieldDelim &&
                        data[i] != '\n' && data[i] != '\r')
                 {
-                    if (data[i] == quote)
-                    {
-                        i++;
-                        if (data[i] == quote)
-                            hasDoubledQuotes = true;
-                    }
                     i++;
                 }
                 lastChar = i;
@@ -181,9 +175,10 @@ unittest
 
 unittest
 {
-    // Unquoted fields that contain quotes
+    // Quoted fields that contain quotes
+    // (Note: RFC-4180 does not allow doubled quotes in unquoted fields)
     auto nastyData =
-        `123,a b ""haha"" c,456` ~ "\n";
+        `123,"a b ""haha"" c",456` ~ "\n";
 
     auto parsed = csvFromString(nastyData);
     assert(parsed == [
