@@ -24,8 +24,12 @@ private char[] filterQuotes(dchar quote)(const(char)[] str) pure
         {
             buf[j++] = '"';
             i++;
+
+            if (i >= str.length)
+                break;
+
             if (str[i] == quote)
-                i++;
+                continue;
         }
         buf[j++] = str[i];
     }
@@ -65,6 +69,8 @@ auto csvFromString(dchar fieldDelim=',', dchar quote='"')(const(char)[] data)
 
             if (data[i] == quote)
             {
+                import std.algorithm : max;
+
                 i++;
                 firstChar = i;
                 while (i < data.length)
@@ -72,14 +78,15 @@ auto csvFromString(dchar fieldDelim=',', dchar quote='"')(const(char)[] data)
                     if (data[i] == quote)
                     {
                         i++;
-                        if (data[i] != quote)
+                        if (i >= data.length || data[i] != quote)
                             break;
 
                         hasDoubledQuotes = true;
                     }
                     i++;
                 }
-                lastChar = (i < data.length && data[i-1] == quote) ? i-1 : i;
+                assert(i-1 < data.length);
+                lastChar = max(firstChar, i-1);
             }
             else
             {
@@ -184,6 +191,19 @@ unittest
     assert(parsed == [
         [ "123", `a b "haha" c`, "456" ]
     ]);
+}
+
+// Boundary condition checks
+unittest
+{
+    auto badData = `123,345,"def""`;
+    auto parsed = csvFromString(badData);   // should not crash
+
+    auto moreBadData = `123,345,"a"`;
+    parsed = csvFromString(moreBadData);    // should not crash
+
+    auto yetMoreBadData = `123,345,"`;
+    parsed = csvFromString(yetMoreBadData); // should not crash
 }
 
 version(none)
