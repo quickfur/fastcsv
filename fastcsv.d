@@ -14,6 +14,24 @@ auto csvFromUtf8File(string filename)
     return csvFromString(cast(string) read(filename));
 }
 
+private char[] filterQuotes(dchar quote)(const(char)[] str) pure
+{
+    auto buf = new char[str.length];
+    size_t j = 0;
+    for (size_t i = 0; i < str.length; i++)
+    {
+        if (str[i] == quote)
+        {
+            buf[j++] = '"';
+            i++;
+            if (str[i] == quote)
+                i++;
+        }
+        buf[j++] = str[i];
+    }
+    return buf[0 .. j];
+}
+
 /**
  * Parses CSV data in a string.
  *
@@ -43,6 +61,8 @@ auto csvFromString(dchar fieldDelim=',', dchar quote='"')(const(char)[] data)
         {
             // Parse fields
             size_t firstChar, lastChar;
+            bool hasDoubledQuotes = false;
+
             if (data[i] == quote)
             {
                 i++;
@@ -55,10 +75,9 @@ auto csvFromString(dchar fieldDelim=',', dchar quote='"')(const(char)[] data)
                         if (data[i] != quote)
                             break;
 
-                        i++;
+                        hasDoubledQuotes = true;
                     }
-                    else
-                        i++;
+                    i++;
                 }
                 lastChar = (i < data.length && data[i-1] == quote) ? i-1 : i;
             }
@@ -68,6 +87,12 @@ auto csvFromString(dchar fieldDelim=',', dchar quote='"')(const(char)[] data)
                 while (i < data.length && data[i] != fieldDelim &&
                        data[i] != '\n' && data[i] != '\r')
                 {
+                    if (data[i] == quote)
+                    {
+                        i++;
+                        if (data[i] == quote)
+                            hasDoubledQuotes = true;
+                    }
                     i++;
                 }
                 lastChar = i;
@@ -87,7 +112,11 @@ auto csvFromString(dchar fieldDelim=',', dchar quote='"')(const(char)[] data)
                 fields = nextFields;
             }
             assert(curField < fields.length);
-            fields[curField++] = data[firstChar .. lastChar];
+            if (hasDoubledQuotes)
+                fields[curField++] = filterQuotes!quote(
+                                        data[firstChar .. lastChar]);
+            else
+                fields[curField++] = data[firstChar .. lastChar];
 
             // Skip over field delimiter
             if (i < data.length && data[i] == fieldDelim)
@@ -158,7 +187,7 @@ unittest
 
     auto parsed = csvFromString(nastyData);
     assert(parsed == [
-        [ "123", `a b ""haha"" c`, "456" ]
+        [ "123", `a b "haha" c`, "456" ]
     ]);
 }
 
