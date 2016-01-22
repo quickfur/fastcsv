@@ -44,7 +44,7 @@ int main(string[] argv)
     else if (argv[1] == "fast")
     {
         auto result = benchmark!({
-            auto data = fastcsv.csvFromString(input);
+            auto data = fastcsv.csvToArray(input);
             writefln("fastcsv read %d records", data.length);
         })(1);
         writefln("fastcsv: %s msecs", result[0].msecs);

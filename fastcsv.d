@@ -11,7 +11,7 @@ module fastcsv;
 auto csvFromUtf8File(string filename)
 {
     import std.file : read;
-    return csvFromString(cast(string) read(filename));
+    return csvToArray(cast(string) read(filename));
 }
 
 private char[] filterQuotes(dchar quote)(const(char)[] str) pure
@@ -37,102 +37,146 @@ private char[] filterQuotes(dchar quote)(const(char)[] str) pure
 }
 
 /**
- * Parses CSV data in a string.
+ * Parse CSV data into an input range of records.
  *
  * Params:
  *  fieldDelim = The field delimiter (default: ',')
- *  data = The data in CSV format.
+ *  quote = The quote character (default: '"')
+ *  input = The data in CSV format.
+ *
+ * Returns:
+ *  An input range of records, each of which is an array of fields.
  */
-auto csvFromString(dchar fieldDelim=',', dchar quote='"')(const(char)[] data)
+auto csvByRecord(dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
 {
-    import core.memory;
-    import std.array : appender;
-
-    enum fieldBlockSize = 1 << 16;
-    auto fields = new const(char)[][fieldBlockSize];
-    size_t curField = 0;
-
-    GC.disable();
-    auto app = appender!(const(char)[][][]);
-
-    // Scan data
-    size_t i;
-    while (i < data.length)
+    struct Result
     {
-        // Parse records
-        size_t firstField = curField;
-        while (i < data.length && data[i] != '\n' && data[i] != '\r')
+        private enum fieldBlockSize = 1 << 16;
+        private const(char)[] data;
+        private const(char)[][] fields;
+        private size_t i, curField;
+
+        bool empty = true;
+        const(char)[][] front;
+
+        this(const(char)[] input)
         {
-            // Parse fields
-            size_t firstChar, lastChar;
-            bool hasDoubledQuotes = false;
+            data = input;
+            fields = new const(char)[][fieldBlockSize];
+            i = 0;
+            curField = 0;
+            empty = (input.length == 0);
+            parseNextRecord();
+        }
 
-            if (data[i] == quote)
+        void parseNextRecord()
+        {
+            size_t firstField = curField;
+            while (i < data.length && data[i] != '\n' && data[i] != '\r')
             {
-                import std.algorithm : max;
+                // Parse fields
+                size_t firstChar, lastChar;
+                bool hasDoubledQuotes = false;
 
-                i++;
-                firstChar = i;
-                while (i < data.length)
+                if (data[i] == quote)
                 {
-                    if (data[i] == quote)
+                    import std.algorithm : max;
+
+                    i++;
+                    firstChar = i;
+                    while (i < data.length)
+                    {
+                        if (data[i] == quote)
+                        {
+                            i++;
+                            if (i >= data.length || data[i] != quote)
+                                break;
+
+                            hasDoubledQuotes = true;
+                        }
+                        i++;
+                    }
+                    assert(i-1 < data.length);
+                    lastChar = max(firstChar, i-1);
+                }
+                else
+                {
+                    firstChar = i;
+                    while (i < data.length && data[i] != fieldDelim &&
+                           data[i] != '\n' && data[i] != '\r')
                     {
                         i++;
-                        if (i >= data.length || data[i] != quote)
-                            break;
-
-                        hasDoubledQuotes = true;
                     }
-                    i++;
+                    lastChar = i;
                 }
-                assert(i-1 < data.length);
-                lastChar = max(firstChar, i-1);
-            }
-            else
-            {
-                firstChar = i;
-                while (i < data.length && data[i] != fieldDelim &&
-                       data[i] != '\n' && data[i] != '\r')
+                if (curField >= fields.length)
                 {
-                    i++;
+                    // Fields block is full; copy current record fields into new
+                    // block so that they are contiguous.
+                    auto nextFields = new const(char)[][fieldBlockSize];
+                    nextFields[0 .. curField - firstField] =
+                        fields[firstField .. curField];
+
+                    //fields.length = firstField; // release unused memory?
+
+                    curField = curField - firstField;
+                    firstField = 0;
+                    fields = nextFields;
                 }
-                lastChar = i;
+                assert(curField < fields.length);
+                if (hasDoubledQuotes)
+                    fields[curField++] = filterQuotes!quote(
+                                            data[firstChar .. lastChar]);
+                else
+                    fields[curField++] = data[firstChar .. lastChar];
+
+                // Skip over field delimiter
+                if (i < data.length && data[i] == fieldDelim)
+                    i++;
             }
-            if (curField >= fields.length)
-            {
-                // Fields block is full; copy current record fields into new
-                // block so that they are contiguous.
-                auto nextFields = new const(char)[][fieldBlockSize];
-                nextFields[0 .. curField - firstField] =
-                    fields[firstField .. curField];
 
-                //fields.length = firstField; // release unused memory?
+            front = fields[firstField .. curField];
 
-                curField = curField - firstField;
-                firstField = 0;
-                fields = nextFields;
-            }
-            assert(curField < fields.length);
-            if (hasDoubledQuotes)
-                fields[curField++] = filterQuotes!quote(
-                                        data[firstChar .. lastChar]);
-            else
-                fields[curField++] = data[firstChar .. lastChar];
-
-            // Skip over field delimiter
-            if (i < data.length && data[i] == fieldDelim)
+            // Skip over record delimiter(s)
+            while (i < data.length && (data[i] == '\n' || data[i] == '\r'))
                 i++;
         }
-        app.put(fields[firstField .. curField]);
 
-        // Skip over record delimiter(s)
-        while (i < data.length && (data[i] == '\n' || data[i] == '\r'))
-            i++;
+        void popFront()
+        {
+            if (i >= data.length)
+            {
+                empty = true;
+                front = [];
+            }
+            else
+                parseNextRecord();
+        }
     }
+    return Result(input);
+}
 
+/**
+ * Parses CSV string data into an array of records.
+ *
+ * Params:
+ *  fieldDelim = The field delimiter (default: ',')
+ *  quote = The quote character (default: '"')
+ *  input = The data in CSV format.
+ *
+ * Returns:
+ *  An array of records, each of which is an array of fields.
+ */
+auto csvToArray(dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
+{
+    import core.memory : GC;
+    import std.array : array;
+
+    GC.disable();
+    auto result = input.csvByRecord!(fieldDelim, quote).array;
     GC.collect();
     GC.enable();
-    return app.data;
+    return result;
 }
 
 unittest
@@ -142,7 +186,7 @@ unittest
         `456,def,"stuv wx",1` ~ "\n" ~
         `78,ghijk,"yx",2`;
 
-    auto parsed = csvFromString(sampleData);
+    auto parsed = csvToArray(sampleData);
     assert(parsed == [
         [ "123", "abc", "mno pqr", "0" ],
         [ "456", "def", "stuv wx", "1" ],
@@ -157,7 +201,7 @@ unittest
         `456,dd,ee,ff` ~ "\r\n" ~
         `789,gg,hh,ii` ~ "\r\n";
 
-    auto parsed = csvFromString(dosData);
+    auto parsed = csvToArray(dosData);
     assert(parsed == [
         [ "123", "aa", "bb", "cc" ],
         [ "456", "dd", "ee", "ff" ],
@@ -173,7 +217,7 @@ unittest
         `ha this is a split value",567` ~ "\n" ~
         `321,"a,comma,b",def,111` ~ "\n";
 
-    auto parsed = csvFromString(nastyData);
+    auto parsed = csvToArray(nastyData);
     assert(parsed == [
         [ "123", "abc", "ha ha \nha this is a split value", "567" ],
         [ "321", "a,comma,b", "def", "111" ]
@@ -187,7 +231,7 @@ unittest
     auto nastyData =
         `123,"a b ""haha"" c",456` ~ "\n";
 
-    auto parsed = csvFromString(nastyData);
+    auto parsed = csvToArray(nastyData);
     assert(parsed == [
         [ "123", `a b "haha" c`, "456" ]
     ]);
@@ -197,16 +241,16 @@ unittest
 unittest
 {
     auto badData = `123,345,"def""`;
-    auto parsed = csvFromString(badData);   // should not crash
+    auto parsed = csvToArray(badData);   // should not crash
 
     auto moreBadData = `123,345,"a"`;
-    parsed = csvFromString(moreBadData);    // should not crash
+    parsed = csvToArray(moreBadData);    // should not crash
 
     auto yetMoreBadData = `123,345,"`;
-    parsed = csvFromString(yetMoreBadData); // should not crash
+    parsed = csvToArray(yetMoreBadData); // should not crash
 
     auto emptyField = `123,,456`;
-    parsed = csvFromString(emptyField);
+    parsed = csvToArray(emptyField);
     assert(parsed == [ [ "123", "", "456" ] ]);
 }
 
