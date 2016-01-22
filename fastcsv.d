@@ -137,7 +137,7 @@ unittest
 
 unittest
 {
-    // Field that contains newlines
+    // Quoted fields that contains newlines and delimiters
     auto nastyData =
         `123,abc,"ha ha ` ~ "\n" ~
         `ha this is a split value",567` ~ "\n" ~
@@ -147,6 +147,18 @@ unittest
     assert(parsed == [
         [ "123", "abc", "ha ha \nha this is a split value", "567" ],
         [ "321", "a,comma,b", "def", "111" ]
+    ]);
+}
+
+unittest
+{
+    // Unquoted fields that contain quotes
+    auto nastyData =
+        `123,a b ""haha"" c,456` ~ "\n";
+
+    auto parsed = csvFromString(nastyData);
+    assert(parsed == [
+        [ "123", `a b ""haha"" c`, "456" ]
     ]);
 }
 
