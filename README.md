@@ -1,0 +1,48 @@
+Fast CSV parser in D
+====================
+
+This is an experimental project in maximising the performance of converting CSV
+data into an array of array of strings.
+
+Its features include:
+
+- Extremely fast. It can run up to about 18x faster than std.csv (as of Jan
+  2016, using a 2.1 million record CSV test file).
+
+- Parses anything that conforms to RFC 4810.
+
+- Optional range-based interface (returns an input range of records).
+
+Its limitations are:
+
+- Does not perform data validation. Will produce nonsensical results for
+  malformed CSV data (anything not conformant to RFC 4810).
+
+- Requires the input data to be entirely in memory. This may not be practical
+  for very large CSV files or low-memory machines.
+
+- Cannot handle CSV data containing records that have more than 4096 fields
+  each.
+
+- The input range interface still requires the entire input data to be an
+  in-memory string. No forward range capability is provided.
+
+- Requires UTF-8 input. Does not support UTF-16 or UTF-32 or other encodings.
+
+Usage:
+
+	import std.file;
+	import fastcsv;
+
+	// Load CSV into memory
+	auto input = cast(string) read(myCsvFile);
+
+	// Convert CSV to array
+	const(char)[][] mydata = csvToArray(input);
+
+	// Iterate over CSV as input range
+	foreach (record; csvByRecord(input))
+	{
+	    // do something with record (as array of string values)
+	}
+
