@@ -51,7 +51,7 @@ private char[] filterQuotes(dchar quote)(const(char)[] str) pure
  *  Does not do any validation on the input; will produce nonsensical results
  *  if input is malformed.
  *
- *  Cannot handle records with more than 512 fields each. (This limit can be
+ *  Cannot handle records with more than 4096 fields each. (This limit can be
  *  statically increased by increasing fieldBlockSize.)
  */
 auto csvByRecord(dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
@@ -118,8 +118,8 @@ auto csvByRecord(dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
                 }
                 if (curField >= fields.length)
                 {
-                    // Fields block is full; copy current record fields into new
-                    // block so that they are contiguous.
+                    // Fields block is full; copy current record fields into
+                    // new block so that they are contiguous.
                     auto nextFields = new const(char)[][fieldBlockSize];
                     nextFields[0 .. curField - firstField] =
                         fields[firstField .. curField];
