@@ -46,6 +46,13 @@ private char[] filterQuotes(dchar quote)(const(char)[] str) pure
  *
  * Returns:
  *  An input range of records, each of which is an array of fields.
+ *
+ * Bugs:
+ *  Does not do any validation on the input; will produce nonsensical results
+ *  if input is malformed.
+ *
+ *  Cannot handle records with more than 512 fields each. (This limit can be
+ *  statically increased by increasing fieldBlockSize.)
  */
 auto csvByRecord(dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
 {

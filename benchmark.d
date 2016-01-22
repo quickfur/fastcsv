@@ -14,7 +14,7 @@ int main(string[] argv)
 {
     if (argv.length < 2)
     {
-        stderr.writeln("Specify std, stdnogc, or fast");
+        stderr.writeln("Specify std, stdnogc, fastwithgc, fast");
         return 1;
     }
 
@@ -41,13 +41,22 @@ int main(string[] argv)
         })(1);
         writefln("std.csv: %s msecs", result[0].msecs);
     }
+    else if (argv[1] == "fastwithgc")
+    {
+        auto result = benchmark!({
+            import std.array : array;
+            auto data = input.csvByRecord.array;
+            writefln("fastcsv read %d records", data.length);
+        })(1);
+        writefln("fastcsv (with gc): %s msecs", result[0].msecs);
+    }
     else if (argv[1] == "fast")
     {
         auto result = benchmark!({
             auto data = fastcsv.csvToArray(input);
             writefln("fastcsv read %d records", data.length);
         })(1);
-        writefln("fastcsv: %s msecs", result[0].msecs);
+        writefln("fastcsv (no gc): %s msecs", result[0].msecs);
     }
     else
     {
