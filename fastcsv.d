@@ -204,6 +204,10 @@ unittest
 
     auto yetMoreBadData = `123,345,"`;
     parsed = csvFromString(yetMoreBadData); // should not crash
+
+    auto emptyField = `123,,456`;
+    parsed = csvFromString(emptyField);
+    assert(parsed == [ [ "123", "", "456" ] ]);
 }
 
 version(none)
