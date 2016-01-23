@@ -12,14 +12,17 @@ import fastcsv;
 
 int main(string[] argv)
 {
+    // Obtained from ftp://ftp.census.gov/econ2013/CBP_CSV/cbp13co.zip
+    string csvFile = "ext/cbp13co.txt";
+
     if (argv.length < 2)
     {
         stderr.writeln("Specify std, stdnogc, fastwithgc, fast");
         return 1;
     }
 
-    // Obtained from ftp://ftp.census.gov/econ2013/CBP_CSV/cbp13co.zip
-    enum csvFile = "ext/cbp13co.txt";
+    if (argv.length >= 3)
+        csvFile = argv[2];
 
     string input = cast(string) read(csvFile);
 
