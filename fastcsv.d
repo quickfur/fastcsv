@@ -291,8 +291,75 @@ auto csvByStruct(S, dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
             if (input.length > 0)
             {
                 empty = false;
-                parseNextRecord();
+                parseHeader();
+                if (input.length > 0)
+                    parseNextRecord();
             }
+        }
+
+        const(char)[] parseField() pure
+        {
+            size_t firstChar, lastChar;
+            bool hasDoubledQuotes = false;
+
+            if (data[i] == quote)
+            {
+                import std.algorithm : max;
+
+                i++;
+                firstChar = i;
+                while (i < data.length)
+                {
+                    if (data[i] == quote)
+                    {
+                        i++;
+                        if (i >= data.length || data[i] != quote)
+                            break;
+
+                        hasDoubledQuotes = true;
+                    }
+                    i++;
+                }
+                assert(i-1 < data.length);
+                lastChar = max(firstChar, i-1);
+            }
+            else
+            {
+                firstChar = i;
+                while (i < data.length && data[i] != fieldDelim &&
+                       data[i] != '\n' && data[i] != '\r')
+                {
+                    i++;
+                }
+                lastChar = i;
+            }
+            return (hasDoubledQuotes) ?
+                filterQuotes!quote(data[firstChar .. lastChar]) :
+                data[firstChar .. lastChar];
+        }
+
+        void parseHeader()
+        {
+            import std.traits : FieldNameTuple;
+
+            assert(i < data.length);
+            foreach (field; FieldNameTuple!S)
+            {
+                if (parseField() != field)
+                    throw new Exception(
+                        "CSV fields do not match struct fields");
+
+                // Skip over field delimiter
+                if (i < data.length && data[i] == fieldDelim)
+                    i++;
+            }
+
+            if (i < data.length && data[i] != '\n' && data[i] != '\r')
+                throw new Exception("CSV fields do not match struct fields");
+
+            // Skip over record delimiter(s)
+            while (i < data.length && (data[i] == '\n' || data[i] == '\r'))
+                i++;
         }
 
         void parseNextRecord()
@@ -303,49 +370,10 @@ auto csvByStruct(S, dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
             assert(i < data.length);
             foreach (field; FieldNameTuple!S)
             {
-                size_t firstChar, lastChar;
-                bool hasDoubledQuotes = false;
-
-                if (data[i] == quote)
-                {
-                    import std.algorithm : max;
-
-                    i++;
-                    firstChar = i;
-                    while (i < data.length)
-                    {
-                        if (data[i] == quote)
-                        {
-                            i++;
-                            if (i >= data.length || data[i] != quote)
-                                break;
-
-                            hasDoubledQuotes = true;
-                        }
-                        i++;
-                    }
-                    assert(i-1 < data.length);
-                    lastChar = max(firstChar, i-1);
-                }
-                else
-                {
-                    firstChar = i;
-                    while (i < data.length && data[i] != fieldDelim &&
-                           data[i] != '\n' && data[i] != '\r')
-                    {
-                        i++;
-                    }
-                    lastChar = i;
-                }
-
                 alias Value = typeof(__traits(getMember, front, field));
-                if (hasDoubledQuotes)
-                    __traits(getMember, front, field) =
-                        filterQuotes!quote(data[firstChar .. lastChar])
-                        .to!Value;
-                else
-                    __traits(getMember, front, field) =
-                        data[firstChar .. lastChar].to!Value;
+
+                // Convert value
+                __traits(getMember, front, field) = parseField().to!Value;
 
                 // Skip over field delimiter
                 if (i < data.length && data[i] == fieldDelim)
@@ -386,6 +414,7 @@ unittest
         int day;
     }
     auto input =
+        `name,year,month,day` ~"\n"~
         `John Smith,1995,1,1` ~"\n"~
         `Jane Doe,1996,2,14` ~"\n"~
         `Albert Donahue,1997,3,30`;
@@ -396,6 +425,22 @@ unittest
         S("Jane Doe", 1996, 2, 14),
         S("Albert Donahue", 1997, 3, 30)
     ]));
+
+    // Test failure cases
+    import std.exception : assertThrown;
+
+    struct T
+    {
+        string name;
+        int age;
+        int customerId;
+    }
+    assertThrown(input.csvByStruct!T.front);
+
+    auto badInput =
+        `name,year,month,day` ~"\n"~
+        `1995,Jane Doe,2,14`;
+    assertThrown(badInput.csvByStruct!S.front);
 }
 
 version(none)
