@@ -261,6 +261,143 @@ unittest
     assert(parsed == [ [ "123", "", "456" ] ]);
 }
 
+/**
+ * Transcribe CSV data into an array of structs.
+ *
+ * Params:
+ *  S = The type of the struct each record must conform to.
+ *  fieldDelim = The field delimiter (default: ',')
+ *  quote = The quote character (default: '"')
+ *  input = The data in CSV format.
+ *
+ * Returns:
+ *  An array of S.
+ */
+auto csvByStruct(S, dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
+    if (is(S == struct))
+{
+    struct Result
+    {
+        private const(char)[] data;
+        private size_t i;
+
+        bool empty = true;
+        S front;
+
+        this(const(char)[] input)
+        {
+            data = input;
+            i = 0;
+            if (input.length > 0)
+            {
+                empty = false;
+                parseNextRecord();
+            }
+        }
+
+        void parseNextRecord()
+        {
+            import std.conv : to;
+            import std.traits : FieldNameTuple;
+
+            assert(i < data.length);
+            foreach (field; FieldNameTuple!S)
+            {
+                size_t firstChar, lastChar;
+                bool hasDoubledQuotes = false;
+
+                if (data[i] == quote)
+                {
+                    import std.algorithm : max;
+
+                    i++;
+                    firstChar = i;
+                    while (i < data.length)
+                    {
+                        if (data[i] == quote)
+                        {
+                            i++;
+                            if (i >= data.length || data[i] != quote)
+                                break;
+
+                            hasDoubledQuotes = true;
+                        }
+                        i++;
+                    }
+                    assert(i-1 < data.length);
+                    lastChar = max(firstChar, i-1);
+                }
+                else
+                {
+                    firstChar = i;
+                    while (i < data.length && data[i] != fieldDelim &&
+                           data[i] != '\n' && data[i] != '\r')
+                    {
+                        i++;
+                    }
+                    lastChar = i;
+                }
+
+                alias Value = typeof(__traits(getMember, front, field));
+                if (hasDoubledQuotes)
+                    __traits(getMember, front, field) =
+                        filterQuotes!quote(data[firstChar .. lastChar])
+                        .to!Value;
+                else
+                    __traits(getMember, front, field) =
+                        data[firstChar .. lastChar].to!Value;
+
+                // Skip over field delimiter
+                if (i < data.length && data[i] == fieldDelim)
+                    i++;
+            }
+
+            if (i < data.length && data[i] != '\n' && data[i] != '\r')
+                throw new Exception("Record does not match struct");
+
+            // Skip over record delimiter(s)
+            while (i < data.length && (data[i] == '\n' || data[i] == '\r'))
+                i++;
+        }
+
+        void popFront()
+        {
+            if (i >= data.length)
+            {
+                empty = true;
+                front = front.init;
+            }
+            else
+                parseNextRecord();
+        }
+    }
+    return Result(input);
+}
+
+unittest
+{
+    import std.algorithm.comparison : equal;
+
+    struct S
+    {
+        string name;
+        int year;
+        int month;
+        int day;
+    }
+    auto input =
+        `John Smith,1995,1,1` ~"\n"~
+        `Jane Doe,1996,2,14` ~"\n"~
+        `Albert Donahue,1997,3,30`;
+
+    auto r = input.csvByStruct!S;
+    assert(r.equal([
+        S("John Smith", 1995, 1, 1),
+        S("Jane Doe", 1996, 2, 14),
+        S("Albert Donahue", 1997, 3, 30)
+    ]));
+}
+
 version(none)
 unittest
 {
