@@ -77,7 +77,8 @@ int main(string[] argv)
 
     if (argv.length < 2)
     {
-        stderr.writeln("Specify std, stdnogc, fastwithgc, fast");
+        stderr.writeln("Specify std, stdnogc, fastwithgc, fast, stdstruct, "~
+                       "faststruct, faststruct2");
         return 1;
     }
 
