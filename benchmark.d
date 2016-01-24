@@ -40,6 +40,36 @@ struct Layout
     string cencty;
 }
 
+struct Layout2
+{
+    const(char)[] fipstate;
+    const(char)[] fipscty;
+    const(char)[] naics;
+    const(char)[] empflag;
+    const(char)[] emp_nf;
+    int emp;
+    const(char)[] qp1_nf;
+    int qp1;
+    const(char)[] ap_nf;
+    int ap;
+    int est;
+    int n1_4;
+    int n5_9;
+    int n10_19;
+    int n20_49;
+    int n50_99;
+    int n100_249;
+    int n250_499;
+    int n500_999;
+    int n1000;
+    int n1000_1;
+    int n1000_2;
+    int n1000_3;
+    int n1000_4;
+    const(char)[] censtate;
+    const(char)[] cencty;
+}
+
 int main(string[] argv)
 {
     // Obtained from ftp://ftp.census.gov/econ2013/CBP_CSV/cbp13co.zip
@@ -107,6 +137,15 @@ int main(string[] argv)
             writefln("fastcsv read %d records", data.length);
         })(1);
         writefln("fastcsv (struct): %s msecs", result[0].msecs);
+    }
+    else if (argv[1] == "faststruct2")
+    {
+        auto result = benchmark!({
+            auto data = fastcsv.csvByStruct!Layout2(input).array;
+            writefln("fastcsv read %d records", data.length);
+        })(1);
+        writefln("fastcsv (struct with const(char)[]): %s msecs",
+                 result[0].msecs);
     }
     else
     {
