@@ -299,8 +299,10 @@ auto csvByStruct(S, dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
 {
     struct Result
     {
+        private enum stringBufSize = 1 << 16;
         private const(char)[] data;
-        private size_t i;
+        private char[] stringBuf;
+        private size_t i, curStringIdx;
 
         bool empty = true;
         S front;
@@ -308,7 +310,10 @@ auto csvByStruct(S, dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
         this(const(char)[] input)
         {
             data = input;
+            stringBuf = new char[stringBufSize];
             i = 0;
+            curStringIdx = 0;
+
             if (input.length > 0)
             {
                 empty = false;
@@ -396,7 +401,28 @@ auto csvByStruct(S, dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
                 alias Value = typeof(__traits(getMember, front, field));
 
                 // Convert value
-                __traits(getMember, front, field) = parseField().to!Value;
+                const(char)[] strval = parseField();
+                static if (is(Value == string))
+                {
+                    // Optimization for string fields: instead of many small
+                    // string allocations, consolidate strings into a string
+                    // buffer and take slices of it.
+                    if (strval.length + curStringIdx >= stringBuf.length)
+                    {
+                        // String buffer full; allocate new buffer.
+                        stringBuf = new char[stringBufSize];
+                        curStringIdx = 0;
+                    }
+                    stringBuf[curStringIdx .. curStringIdx + strval.length] = 
+                        strval[0 .. $];
+
+                    // Since we never take overlapping slices of stringBuf,
+                    // it's safe to assume uniqueness here.
+                    import std.exception : assumeUnique;
+                    __traits(getMember, front, field) = assumeUnique(strval);
+                }
+                else
+                    __traits(getMember, front, field) = strval.to!Value;
 
                 // Skip over field delimiter
                 if (i < data.length && data[i] == fieldDelim)
