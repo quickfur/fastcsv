@@ -10,6 +10,36 @@ import std.stdio;
 
 import fastcsv;
 
+struct Layout
+{
+    string fipstate;
+    string fipscty;
+    string naics;
+    string empflag;
+    string emp_nf;
+    int emp;
+    string qp1_nf;
+    int qp1;
+    string ap_nf;
+    int ap;
+    int est;
+    int n1_4;
+    int n5_9;
+    int n10_19;
+    int n20_49;
+    int n50_99;
+    int n100_249;
+    int n250_499;
+    int n500_999;
+    int n1000;
+    int n1000_1;
+    int n1000_2;
+    int n1000_3;
+    int n1000_4;
+    string censtate;
+    string cencty;
+}
+
 int main(string[] argv)
 {
     // Obtained from ftp://ftp.census.gov/econ2013/CBP_CSV/cbp13co.zip
@@ -60,6 +90,23 @@ int main(string[] argv)
             writefln("fastcsv read %d records", data.length);
         })(1);
         writefln("fastcsv (no gc): %s msecs", result[0].msecs);
+    }
+    else if (argv[1] == "stdstruct")
+    {
+        auto result = benchmark!({
+            string[] header;
+            auto data = std.csv.csvReader!Layout(input, header).array;
+            writefln("std.csv read %d records", data.length);
+        })(1);
+        writefln("std.csv (struct): %s msecs", result[0].msecs);
+    }
+    else if (argv[1] == "faststruct")
+    {
+        auto result = benchmark!({
+            auto data = fastcsv.csvByStruct!Layout(input).array;
+            writefln("fastcsv read %d records", data.length);
+        })(1);
+        writefln("fastcsv (struct): %s msecs", result[0].msecs);
     }
     else
     {

@@ -261,6 +261,27 @@ unittest
     assert(parsed == [ [ "123", "", "456" ] ]);
 }
 
+static if (__VERSION__ < 2067UL)
+{
+    // Copied from std.traits, to fill up lack in older versions of Phobos
+    import std.typetuple : staticMap;
+    private enum NameOf(alias T) = T.stringof;
+    template isNested(T)
+        if(is(T == class) || is(T == struct) || is(T == union))
+    {
+        enum isNested = __traits(isNested, T);
+    }
+    template FieldNameTuple(T)
+    {
+        static if (is(T == struct) || is(T == union))
+            alias FieldNameTuple = staticMap!(NameOf, T.tupleof[0 .. $ - isNested!T]);
+        else static if (is(T == class))
+            alias FieldNameTuple = staticMap!(NameOf, T.tupleof);
+        else
+            alias FieldNameTuple = TypeTuple!"";
+    }
+}
+
 /**
  * Transcribe CSV data into an array of structs.
  *
@@ -340,7 +361,8 @@ auto csvByStruct(S, dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
 
         void parseHeader()
         {
-            import std.traits : FieldNameTuple;
+            static if (__VERSION__ >= 2067UL)
+                import std.traits : FieldNameTuple;
 
             assert(i < data.length);
             foreach (field; FieldNameTuple!S)
@@ -365,7 +387,8 @@ auto csvByStruct(S, dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
         void parseNextRecord()
         {
             import std.conv : to;
-            import std.traits : FieldNameTuple;
+            static if (__VERSION__ >= 2067UL)
+                import std.traits : FieldNameTuple;
 
             assert(i < data.length);
             foreach (field; FieldNameTuple!S)
