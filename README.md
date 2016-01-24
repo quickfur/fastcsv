@@ -1,8 +1,8 @@
 Fast CSV parser in D
 ====================
 
-This is an experimental project in maximising the performance of converting CSV
-data into an array of array of strings.
+This is an experimental project in improving the performance of loading CSV
+files in D.
 
 Its features include:
 
@@ -12,6 +12,10 @@ Its features include:
 - Parses anything that conforms to RFC 4810.
 
 - Optional range-based interface (returns an input range of records).
+
+- Supports fast transcription of CSV data to a range of structs. Specially
+  optimized for structs with string fields, that outperforms std.csv by an
+  order of magnitude.
 
 Its limitations are:
 
@@ -23,6 +27,8 @@ Its limitations are:
 
 - Cannot handle CSV data containing records that have more than 4096 fields
   each.
+
+- Cannot handle string fields larger than 64KB.
 
 - The input range interface still requires the entire input data to be an
   in-memory string. No forward range capability is provided.
