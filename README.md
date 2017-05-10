@@ -26,9 +26,10 @@ Its limitations are:
   for very large CSV files or low-memory machines.
 
 - Cannot handle CSV data containing records that have more than 4096 fields
-  each.
+  each. (This can be statically raised by modifying a constant in the code.)
 
-- Cannot handle string fields larger than 64KB.
+- Cannot handle string fields larger than 64KB. (This can be statically raised
+  by modifying a constant in the code.)
 
 - The input range interface still requires the entire input data to be an
   in-memory string. No forward range capability is provided.
