@@ -293,6 +293,10 @@ static if (__VERSION__ < 2067UL)
  *
  * Returns:
  *  An array of S.
+ *
+ * Bugs:
+ *  Cannot handle strings larger than 64KB each. (This limit can be statically
+ *  raised by increasing stringBufSize.)
  */
 auto csvByStruct(S, dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
     if (is(S == struct))
