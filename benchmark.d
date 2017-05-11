@@ -5,7 +5,7 @@ import core.memory;
 import std.array;
 import std.csv;
 import std.file;
-import std.datetime;
+import std.datetime : benchmark;
 import std.stdio;
 
 import fastcsv;
