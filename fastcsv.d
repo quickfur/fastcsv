@@ -76,9 +76,25 @@ auto csvByRecord(dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
             parseNextRecord();
         }
 
-        void parseNextRecord()
+        private void parseNextRecord()
         {
             size_t firstField = curField;
+
+            void allocNewBlock()()
+            {
+                // Fields block is full; copy current record fields into new
+                // block so that they are contiguous.
+                auto nextFields = new const(char)[][fieldBlockSize];
+                nextFields[0 .. curField - firstField] =
+                    fields[firstField .. curField];
+
+                //fields.length = firstField; // release unused memory?
+
+                curField = curField - firstField;
+                firstField = 0;
+                fields = nextFields;
+            }
+
             while (i < data.length && data[i] != '\n' && data[i] != '\r')
             {
                 // Parse fields
@@ -117,19 +133,7 @@ auto csvByRecord(dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
                     lastChar = i;
                 }
                 if (curField >= fields.length)
-                {
-                    // Fields block is full; copy current record fields into
-                    // new block so that they are contiguous.
-                    auto nextFields = new const(char)[][fieldBlockSize];
-                    nextFields[0 .. curField - firstField] =
-                        fields[firstField .. curField];
-
-                    //fields.length = firstField; // release unused memory?
-
-                    curField = curField - firstField;
-                    firstField = 0;
-                    fields = nextFields;
-                }
+                    allocNewBlock();
                 assert(curField < fields.length);
                 if (hasDoubledQuotes)
                     fields[curField++] = filterQuotes!quote(
@@ -139,7 +143,18 @@ auto csvByRecord(dchar fieldDelim=',', dchar quote='"')(const(char)[] input)
 
                 // Skip over field delimiter
                 if (i < data.length && data[i] == fieldDelim)
+                {
                     i++;
+
+                    // Corner case: trailing delimiter on line, should generate
+                    // empty field.
+                    if (data[i] == '\n' || data[i] == '\r')
+                    {
+                        if (curField >= fields.length)
+                            allocNewBlock();
+                        fields[curField++] = "";
+                    }
+                }
             }
 
             front = fields[firstField .. curField];
@@ -502,6 +517,15 @@ unittest
     auto data = csvFromUtf8File("ext/cbp13co.txt");
     import std.stdio;
     writefln("%d records", data.length);
+}
+
+// issue #2
+unittest
+{
+    import std.conv : text;
+    auto data = "1,2,\na,b,c";
+    auto parsed = csvToArray(data);
+    assert(parsed == [[ "1", "2", "" ], [ "a", "b", "c" ]], parsed.text);
 }
 
 // vim:set ai sw=4 ts=4 et:
